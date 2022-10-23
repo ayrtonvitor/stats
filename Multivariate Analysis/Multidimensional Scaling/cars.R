@@ -1,9 +1,10 @@
-library(tidyverse)
-library(readxl)
-library(ggrepel)
 library(ggpubr)
+library(ggrepel)
 library(NbClust)
+library(readxl)
 library(smacof)
+library(tidyverse)
+library(vegan)
 
 carros <- read_excel("./Downloads/carros.xls")
 View(carros)
@@ -35,4 +36,16 @@ ggscatter(coord_carros, x = "D1", y = "D2",
           ellipse = TRUE,
           ggtheme = theme_gray())
 
+pc <- prcomp(carros[, -c(1, 2)], center = TRUE, scale. = TRUE)
+pc
+summary(pc)
+(bp <- ggbiplot(pc))
 
+proc <- procrustes(as.matrix(MDS$conf), as.matrix(bp$data))
+proc
+summary(proc)
+
+plot(proc, kind = 2)
+residuals(proc)
+
+protest(as.matrix(MDS$conf), as.matrix(bp$data))
