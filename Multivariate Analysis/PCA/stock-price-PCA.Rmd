@@ -16,19 +16,19 @@ library(tidyverse)
 ```{r}
 spd <- read_csv("~/Downloads/T0804.csv", col_names = TRUE)
 ```
+
 ```{r}
 head(spd)
 summary(spd)
 colSums(is.na(spd))
 ```
+
 ```{r}
 ggplot(reshape2::melt(spd), mapping = aes(x = variable, y = value)) +
   geom_boxplot()
 ```
 
-Same response variable, same scale, simmilar range, maybe we could proceed without
-scaling.
-
+Same response variable, same scale, simmilar range, maybe we could proceed without scaling.
 
 ### Sample cov matrix
 
@@ -40,19 +40,19 @@ print(S)
 pc <- eigen(S)
 print(pc)
 ```
+
 ```{r}
 ggplot(data.frame(values=pc$values), aes(y = values, x = 1:5)) +
   geom_line() +
   labs(y="eigenvalue", x="principal component")
 ```
+
 ```{r}
 sum(pc$values[1:2] / sum(pc$values))
 sum(pc$values[1:3] / sum(pc$values))
 ```
-The elbow suggest using only two principal components, but accounting for only
-76\% of total variance, adding a third component to increase the total variance
-could be important for subsequent pourpuses. We can take a look at the linear
-correlations of principal components vs original variables.
+
+The elbow suggest using only two principal components, but accounting for only 76% of total variance, adding a third component to increase the total variance could be important for subsequent pourpuses. We can take a look at the linear correlations of principal components vs original variables.
 
 ```{r}
 rho <- matrix(numeric(25), ncol = 5)
@@ -61,18 +61,10 @@ for (i in 1:5) {
 }
 rho
 ```
-With rows as principal components and columns as original values, we can notice
-that Shell and Exxon Mobil are highly correlated with the first component,
-whereas JP Morgan and Citibank, followed by Wells Fargo, appear to be the most
-important variables to form the second component. No company seems particularly
-highly correlated with the third principal component. This suggest that the first
-component could be thought of as representing the oil companies, while the second
-component, the banks.
 
-Given that the gain in interpretability is not insanely high, as the contribution
-of the banks to the first component and the contribution of oil companies to the
-second component (negatively), is not exaclty negligible, we proceed with 3 variables
-as it accounts for higher variance.
+With rows as principal components and columns as original values, we can notice that Shell and Exxon Mobil are highly correlated with the first component, whereas JP Morgan and Citibank, followed by Wells Fargo, appear to be the most important variables to form the second component. No company seems particularly highly correlated with the third principal component. This suggest that the first component could be thought of as representing the oil companies, while the second component, the banks.
+
+Given that the gain in interpretability is not insanely high, as the contribution of the banks to the first component and the contribution of oil companies to the second component (negatively), is not exactly negligible, we proceed with 3 variables as it accounts for higher variance.
 
 ### Using princomp
 
@@ -81,4 +73,51 @@ pca <- princomp(spd)
 summary(pca)
 pca$loadings
 ```
+
 Notice that the variances are different.
+
+### eigenvalues inference
+
+We will proceed using princomp.
+
+```{r}
+for (i in 1:3) {
+  qqnorm(pca$scores[,i])
+  abline(0, 1, col = 'red')  
+}
+```
+
+Although not normal, n=103, so using Anderson's and Girshick's asymptotic result,
+we can compute the Bonferroni simultaneous confidence intervals for the three
+principal components using
+
+$$
+\sqrt{n}(\hat{\boldsymbol\lambda} - \boldsymbol\lambda)\sim N_p(\boldsymbol{0}, 2\boldsymbol\Lambda^2)
+$$ implying$$\frac{\hat\lambda_i}{(1+z(\alpha/6)\sqrt{2/n})} \leq \lambda_i \leq \frac{\hat\lambda_i}{(1-z(\alpha/6)\sqrt{2/n})}$$
+
+with $\alpha=0.1$, we get
+
+```{r}
+ints <- data.frame(low = pca$sdev^2, high = pca$sdev^2)
+ints[,1] <- ints[,1] /(1 + qnorm(1 - 0.1 / 6) * sqrt(2/nrow(spd)))
+ints[,2] <- ints[,2] /(1 - qnorm(1 - 0.1 / 6) * sqrt(2/nrow(spd)))
+ints[1:3,]
+```
+
+with $\alpha=0.05$, we get
+
+```{r}
+ints <- data.frame(low = pca$sdev^2, high = pca$sdev^2)
+ints[,1] <- ints[,1] /(1 + qnorm(1 - 0.05 / 6) * sqrt(2/nrow(spd)))
+ints[,2] <- ints[,2] /(1 - qnorm(1 - 0.05 / 6) * sqrt(2/nrow(spd)))
+ints[1:3,]
+```
+
+At 90% confidence level, we have that $\lambda_1\neq\lambda_2$, but we cannot say
+that at 95% confidence level.
+
+In summary, it is probably safe to say that the stock rates of return can be
+summarized in 3 dimensions, as they account for almost 90% of the total variance
+of the original data, the first two principal components give a somewhat good
+interpretability of linear combination of the original data and the eigenvalues
+appear to be distinct.
